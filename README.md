@@ -19,6 +19,7 @@ This is the backend for the "StarShop" online shopping website, built with NodeJ
   - [Products](#products)
   - [Orders](#orders)
   - [Stats (Admin Only)](#stats-admin-only)
+  - [Swagger UI](#swagger-ui)
 
 ## Features
 
@@ -197,3 +198,11 @@ All API endpoints are prefixed with `/api`.
     -   Get monthly revenue from approved orders.
 -   `GET /api/stats/products/top-selling`
     -   Get top-selling products. Optional query parameter `limit` (default is 5).
+
+### 📖 Swagger UI
+
+Access the API documentation through Swagger UI at:
+
+```
+http://localhost:3000/api-docs
+```

@@ -4,6 +4,8 @@ const cors = require('cors');
 const db = require('./src/models');
 const setupRoutes = require('./src/routes');
 const errorHandler = require('./src/middlewares/errorHandler');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./src/config/swagger');
 
 const app = express();
 
@@ -11,6 +13,9 @@ const app = express();
 app.use(cors());
 app.use(express.json()); // for parsing application/json
 app.use(express.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
+
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Setup routes
 app.use('/api', setupRoutes);

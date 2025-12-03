@@ -25,9 +25,11 @@ This is the backend for the "StarShop" online shopping website, built with NodeJ
 
 - User authentication (register, login) with JWT.
 - Password hashing with Bcrypt.
-- Role-based authorization (admin, staff, user).
-- CRUD operations for products (admin, staff).
+- Role-based authorization (admin, user).
+- CRUD operations for products (admin).
 - Order creation and management.
+- Shopping cart functionality.
+- Product categories.
 - Admin statistics (total revenue, monthly revenue, top-selling products).
 
 ## Technology Stack
@@ -46,6 +48,9 @@ This is the backend for the "StarShop" online shopping website, built with NodeJ
 /src
   /config           # Sequelize configuration
   /models           # Sequelize models (Code First)
+    - cart.js
+    - cartItem.js
+    - category.js
   /migrations       # Database migrations (optional, as we use sync for simplicity)
   /seeders          # Sample data seeders
   /controllers      # Request handlers
@@ -101,28 +106,23 @@ JWT_EXPIRES_IN=1d
 
 ### Database Setup
 
-This project uses Sequelize's "Code First" approach to automatically generate and alter the database schema based on your models.
+This project uses Sequelize for database management. Ensure you have `sequelize-cli` installed locally or globally (`npm install -g sequelize-cli`).
 
 1.  **Create an empty MySQL database** named `starshop_db` (or whatever you configured `DB_NAME` to be) in your MySQL server.
 
-2.  To synchronize the database and run seeders, add the following scripts to your `package.json`:
+2.  **Configure Sequelize CLI**: A `.sequelizerc` file is provided in the project root to configure `sequelize-cli` to locate models, migrations, and seeders in the `src` directory.
 
-    ```json
-    "scripts": {
-      "start": "node server.js",
-      "db:sync": "node src/utils/sync.js",
-      "db:seed": "npx sequelize-cli db:seed:all",
-      "db:migrate": "npx sequelize-cli db:migrate"
-    }
-    ```
-
-    **Note:** Ensure that `sequelize-cli` is globally or locally installed. If not, run `npm install -g sequelize-cli` or `npm install sequelize-cli`.
-
-3.  Run the database synchronization and seeding:
+3.  **Run Migrations**: To create and update your database schema, and to add initial categories, run the following command:
     ```bash
-    npm run db:sync
+    npm run db:migrate
+    ```
+    *Note: If you encounter foreign key constraint errors when adding `categoryId` to `Products`, ensure you have run the initial category migration successfully and either manually update existing products with a `categoryId` or create a data migration for it. You may need to temporarily make `categoryId` nullable in `src/models/product.js` during initial setup if you have existing product data without categories.* 
+
+4.  **Run Seeders (Optional)**: To populate your database with sample data, including initial categories, run:
+    ```bash
     npm run db:seed
     ```
+    *Note: The `db:seed` script will also insert initial categories, but the `db:migrate` command for initial categories ensures the table is set up before products are migrated.*
 
 ### Running the Application
 
@@ -145,10 +145,10 @@ All API endpoints are prefixed with `/api`.
     -   Request Body: `{ name, email, password }`
     -   Default `role` is "user".
 -   `POST /api/auth/login`
-    -   Logs in a user and returns a JWT token.
+    -   Logs in a user and returns an `x-access-token`.
     -   Request Body: `{ email, password }`
 
-### 👤 USERS (Requires JWT)
+### 👤 USERS (Requires `x-access-token`)
 
 -   `GET /api/users` (Admin Only)
     -   Get all users.
@@ -156,27 +156,57 @@ All API endpoints are prefixed with `/api`.
     -   Get user by ID.
 -   `PUT /api/users/:id`
     -   Update user information. Users can only update their own profile unless they are an admin.
-    -   Request Body: `{ name?, email?, password?, phone?, address? }`
+    -   Request Body: `{ name?, email?, password?, phone?, address?, age?, avatar? }`
 -   `DELETE /api/users/:id` (Admin Only)
     -   Delete a user.
 
-### 🛒 PRODUCTS (Requires JWT for CRUD, public for GET)
+### 🛒 PRODUCTS (Requires `x-access-token` for CRUD, public for GET)
 
 -   `GET /api/products`
-    -   Get all products. Supports search by `name`, `category`, `minPrice`, `maxPrice` as query parameters.
-    -   Example: `/api/products?name=abc&category=phone&minPrice=100&maxPrice=500`
+    -   Get all products. Supports search by `name`, `categoryId`, `minPrice`, `maxPrice` as query parameters.
+    -   Example: `/api/products?name=abc&categoryId=1&minPrice=100&maxPrice=500`
 -   `GET /api/products/:id`
     -   Get product by ID.
--   `POST /api/products` (Admin, Staff Only)
+-   `POST /api/products` (Admin Only)
     -   Create a new product.
-    -   Request Body: `{ name, description?, category, price, imageUrl?, stock }`
--   `PUT /api/products/:id` (Admin, Staff Only)
+    -   Request Body: `{ name, description?, categoryId, price, image?, stock, featured? }`
+-   `PUT /api/products/:id` (Admin Only)
     -   Update product information.
-    -   Request Body: `{ name?, description?, category?, price?, imageUrl?, stock? }`
--   `DELETE /api/products/:id` (Admin, Staff Only)
+    -   Request Body: `{ name?, description?, categoryId?, price?, image?, stock?, featured? }`
+-   `DELETE /api/products/:id` (Admin Only)
     -   Delete a product.
 
-### 📦 ORDERS (Requires JWT)
+### 🛍️ CART (Requires `x-access-token`)
+
+-   `GET /api/cart`
+    -   Get the authenticated user's cart.
+-   `POST /api/cart`
+    -   Add an item to the cart.
+    -   Request Body: `{ productId, quantity }`
+-   `PUT /api/cart/:productId`
+    -   Update the quantity of a product in the cart.
+    -   Request Body: `{ quantity }`
+-   `DELETE /api/cart/:productId`
+    -   Remove a product from the cart.
+-   `DELETE /api/cart`
+    -   Clear the authenticated user's cart.
+
+### 🏷️ CATEGORIES (Public)
+
+-   `GET /api/categories`
+    -   Get all product categories.
+-   `GET /api/categories/:id`
+    -   Get category by ID.
+-   `POST /api/categories` (Admin Only)
+    -   Create a new category.
+    -   Request Body: `{ name, icon? }`
+-   `PUT /api/categories/:id` (Admin Only)
+    -   Update category information.
+    -   Request Body: `{ name?, icon? }`
+-   `DELETE /api/categories/:id` (Admin Only)
+    -   Delete a category.
+
+### 📦 ORDERS (Requires `x-access-token`)
 
 -   `POST /api/orders` (User Only)
     -   Create a new order based on cart items.
@@ -185,12 +215,12 @@ All API endpoints are prefixed with `/api`.
     -   Get orders for the authenticated user.
 -   `GET /api/orders/all` (Admin Only)
     -   Get all orders.
--   `PUT /api/orders/:id/approve` (Admin, Staff Only)
+-   `PUT /api/orders/:id/approve` (Admin Only)
     -   Approve an order.
--   `PUT /api/orders/:id/cancel` (Admin, Staff Only)
+-   `PUT /api/orders/:id/cancel` (Admin Only)
     -   Cancel an order.
 
-### 📊 STATS (Admin Only, Requires JWT)
+### 📊 STATS (Admin Only, Requires `x-access-token`)
 
 -   `GET /api/stats/revenue`
     -   Get total revenue from approved orders.
